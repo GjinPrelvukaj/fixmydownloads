@@ -3,7 +3,6 @@ import pystray
 import PIL.Image
 import webbrowser
 from datetime import datetime
-import shutil
 
 folder_extensions = {
     'Photos': ['.png', '.jpg', '.jpeg', '.gif', '.bmp', '.tiff', '.webp'],
@@ -61,32 +60,40 @@ def organize_all(icon):
     for file_type in folder_extensions:
         organize_files_by_type(file_type)
 
-def log_organize_action(file_name, file_extension, destination):
-    now = datetime.now()
-    date_time = now.strftime("%Y-%m-%d-%H-%M-%S")
-    log_file_name = f"OrganizeLog-{date_time}.txt"
-    log_folder_path = os.path.join(os.path.expanduser('~'), 'Downloads', 'OrganizeLogs')
-    log_file_path = os.path.join(log_folder_path, log_file_name)
-    
-    # Create the OrganizeLogs folder if it doesn't exist
-    if not os.path.exists(log_folder_path):
-        os.makedirs(log_folder_path)
-    
-    with open(log_file_path, 'a') as log_file:
-        log_file.write(f"File Name: {file_name}\n")
-        log_file.write(f"File Extension: {file_extension}\n")
-        log_file.write(f"Destination: {destination}\n\n")
+def delete_temp_files(icon):
+    temp_folder_path = os.path.join(os.environ['LOCALAPPDATA'], 'Temp')
+    try:
+        deleted_files_count = 0
+        for file in os.listdir(temp_folder_path):
+            file_path = os.path.join(temp_folder_path, file)
+            if os.path.isfile(file_path):
+                try:
+                    os.remove(file_path)
+                    log_delete_action(file_path)
+                    deleted_files_count += 1
+                except Exception as e:
+                    print(f"Error deleting file {file_path}: {e}")
+
+        print("Temporary files deleted successfully.")
+
+    except Exception as e:
+        print(f"Error accessing temporary files folder: {e}")
 
 def organize_files_by_type(file_type):
     downloads_folder_path = os.path.join(os.path.expanduser('~'), 'Downloads')
 
+    # Create the main 'Organize' folder if it doesn't exist
+    organize_folder_path = os.path.join(downloads_folder_path, 'OrganizeTM')
+    if not os.path.exists(organize_folder_path):
+        os.makedirs(organize_folder_path)
+
     # Define the folder path for the specified file type
     if file_type == 'Torrents':
-        folder_path = os.path.join(downloads_folder_path, 'Others', 'Torrents')
+        folder_path = os.path.join(organize_folder_path, 'Torrents')
     elif file_type in ['Ebooks', 'Presentations', 'Spreadsheets']:
-        folder_path = os.path.join(downloads_folder_path, 'Others', file_type)
+        folder_path = os.path.join(organize_folder_path, file_type)
     else:
-        folder_path = os.path.join(downloads_folder_path, file_type)
+        folder_path = os.path.join(organize_folder_path, file_type)
 
     # Create the folder if it doesn't exist
     if not os.path.exists(folder_path):
@@ -107,27 +114,21 @@ def organize_files_by_type(file_type):
     
     print(f"{file_type} organized successfully.")
 
-def delete_temp_files(icon):
-    temp_folder_path = os.path.join(os.environ['LOCALAPPDATA'], 'Temp')
-    try:
-        for root, dirs, files in os.walk(temp_folder_path, topdown=False):
-            for name in files:
-                file_path = os.path.join(root, name)
-                try:
-                    os.remove(file_path)
-                    log_delete_action(file_path)
-                except Exception as e:
-                    print(f"Error deleting file {file_path}: {e}")
-            for name in dirs:
-                dir_path = os.path.join(root, name)
-                try:
-                    os.rmdir(dir_path)
-                    log_delete_action(dir_path)
-                except Exception as e:
-                    print(f"Error deleting directory {dir_path}: {e}")
-        print("Temporary files deleted successfully.")
-    except Exception as e:
-        print(f"Error accessing temporary files folder: {e}")
+def log_organize_action(file_name, file_extension, destination):
+    now = datetime.now()
+    date_time = now.strftime("%Y-%m-%d-%H-%M-%S")
+    log_file_name = f"OrganizeLog-{date_time}.txt"
+    log_folder_path = os.path.join(os.path.expanduser('~'), 'Downloads', 'OrganizeLogs')
+    log_file_path = os.path.join(log_folder_path, log_file_name)
+    
+    # Create the OrganizeLogs folder if it doesn't exist
+    if not os.path.exists(log_folder_path):
+        os.makedirs(log_folder_path)
+    
+    with open(log_file_path, 'a') as log_file:
+        log_file.write(f"File Name: {file_name}\n")
+        log_file.write(f"File Extension: {file_extension}\n")
+        log_file.write(f"Destination: {destination}\n\n")
 
 def log_delete_action(file_path):
     now = datetime.now()
@@ -141,12 +142,10 @@ def log_delete_action(file_path):
         os.makedirs(log_folder_path)
     
     with open(log_file_path, 'a') as log_file:
-        log_file.write(f"Deleted: {file_path}\n")
+        log_file.write(f"Deleted File: {file_path}\n")
 
 def on_clicked(icon, item):
-    if str(item) == "Hello World":
-        print("Hello World")
-    elif str(item) == "Exit":
+    if str(item) == "Exit":
         icon.stop()
     elif str(item) == "Github":
         webbrowser.open('https://github.com/GjinPrelvukaj/fixmydownloads/')
@@ -154,7 +153,6 @@ def on_clicked(icon, item):
 image = PIL.Image.open("fmd.png")
 
 icon = pystray.Icon("FMD", image, menu=pystray.Menu(
-    pystray.MenuItem("Say Hello", on_clicked),
     pystray.MenuItem("Organize", pystray.Menu(
         pystray.MenuItem("Photos", organize_photos),
         pystray.MenuItem("Videos", organize_videos),
@@ -168,9 +166,7 @@ icon = pystray.Icon("FMD", image, menu=pystray.Menu(
             pystray.MenuItem("Spreadsheets", organize_spreadsheets),
         )),
     )),
-    pystray.MenuItem("Delete", pystray.Menu(
-        pystray.MenuItem("Temp files", delete_temp_files)
-    )),
+    pystray.MenuItem("Delete Temp Files", delete_temp_files),
     pystray.MenuItem("Exit", on_clicked),
     pystray.MenuItem("Links", pystray.Menu(
         pystray.MenuItem("Github", on_clicked),
